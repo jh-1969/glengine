@@ -1,8 +1,8 @@
 [
 	{ 
 		"directory": "/home/jh/Documents/c++dev/glengine",
-    "command": "g++",
-		"arguments": ["-I./inc", "./bin/engine.o", "./src/engine.cpp"],
-		"file": "src/engine.cpp" 
+    "command": "clang++",
+    "arguments": ["/bin/clang++", "-I./inc", "./bin/engine.o", "./src/engine.cpp"],
+    "file": "src/engine.cpp" 
 	}
 ]

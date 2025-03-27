@@ -2,13 +2,13 @@
 
 #extension GL_ARB_bindless_texture : require
 
-layout(binding = 2, std430) readonly buffer ssbo3 {
+layout(binding = 0, std430) readonly buffer ssbo3 {
   sampler2D textures[];
 };
 
 
 
-uniform vec3 fsViewPosition;
+uniform vec3 viewPosition;
 
 
 
@@ -38,20 +38,23 @@ vec3 c_specular(float strength, vec3 normal, vec3 viewPosition, vec3 position, v
   return strength * spec * lightColor;
 }
 
+
+
 void main() {
   sampler2D tex = textures[0];
   vec3 objectColor = texture(tex, fsUv).rgb;
+  objectColor = vec3(1.0, 0.0, 0.0);
 
   vec3 normal = normalize(fsNormal);
 
   vec3 lightColor = vec3(1.0, 1.0, 1.0);
-  vec3 lightPosition = vec3(4.0, 2.0, 0.0);
+  vec3 lightPosition = vec3(1.0, 4.0, 4.0);
   vec3 lightDirection = normalize(lightPosition - fsPosition);
   
   vec3 light =
     c_ambient(0.2, lightColor) +
     c_diffuse(normal, lightDirection, lightColor) +
-    c_specular(0.5, normal, fsViewPosition, fsPosition, lightDirection, lightColor);
+    c_specular(0.5, normal, viewPosition, fsPosition, lightDirection, lightColor);
 
   fragColor = vec4(light * objectColor, 1.0);
 }

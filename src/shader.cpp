@@ -59,6 +59,15 @@ void Shader::set_vec3(const char* name, glm::vec3 &vec) {
     glUniform3fv(location, 1, glm::value_ptr(vec));
 }
 
+void Shader::set_int(const char* name, int x) {
+  int location = glGetUniformLocation(this->id, name);
+
+  if(location == -1)
+    std::cout << "No uniform in shader program named " << name << std::endl;
+  else
+    glUniform1i(location, x);
+}
+
 
 
 static GLuint

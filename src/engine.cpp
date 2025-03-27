@@ -1,12 +1,7 @@
 #include <engine.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.hpp>
+#include <unistd.h>
 
 
-
-GLuint texture;
-GLuint64 texHandle;
 
 float alpha = 0.0;
 float beta = 0.0;
@@ -14,8 +9,17 @@ float radius = 5.0;
 
 
 
-static void
-populate_test_cube(std::vector<Vertex> &vertices, std::vector<GLuint> &indices);
+Model* tmodel;
+GLuint t1;
+GLuint t2;
+GLuint t3;
+GLuint t4;
+GLuint t5;
+
+
+
+static GLuint
+load_texture(const char* path, int type);
 
 static void
 key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -55,62 +59,34 @@ Engine::Engine(int windowWidth, int windowHeight) {
   glViewport(0, 0, windowWidth, windowHeight);
   
   this->shader = new Shader(
-    "assets/shaders/def.vert",
-    "assets/shaders/def.frag"
+    "assets/shaders/pbr.vert",
+    "assets/shaders/pbr.frag"
   );
 
   glEnable(GL_DEPTH_TEST);
-  glGenVertexArrays(1, &this->emptyVao);
-  glBindVertexArray(this->emptyVao);
-
-  int width, height, nrChannels;
-  stbi_set_flip_vertically_on_load(true);
-  unsigned char *data = stbi_load("assets/textures/container.jpg", &width, &height, &nrChannels, 0);
   
-  if(!data) {
-    std::cout << "Failed to load texture" << std::endl;
-  }
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT); 
+  glFrontFace(GL_CW); 
 
-  GLuint texture;
-  glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-  glTextureStorage2D(texture, 1, GL_RGB8, width, height);
-  glTextureSubImage2D(
-      texture, 
-      // level, xoffset, yoffset, width, height
-      0, 0, 0, width, height, 
-      GL_RGB, GL_UNSIGNED_BYTE, 
-      (const void *)data);
-  glGenerateTextureMipmap(texture);
-  
-  stbi_image_free(data);
+  tmodel = new Model("assets/plane.fbx");
 
-  texHandle = glGetTextureHandleARB(texture);
-  if (texHandle == 0) {
-    std::cerr << "Error! Handle returned null" << std::endl;
-    exit(-1);
-  }
-
-  glDeleteTextures(1, &texture);
+  t1 = load_texture("assets/textures/metal/stained_patterned_metal_26_98_diffuse.jpg", GL_RGB);
+  t2 = load_texture("assets/textures/metal/stained_patterned_metal_26_98_metalness.jpg", GL_RED);
+  t3 = load_texture("assets/textures/metal/stained_patterned_metal_26_98_roughness.jpg", GL_RED);
+  t4 = load_texture("assets/textures/metal/stained_patterned_metal_26_98_ao.jpg", GL_RED);
+  t5 = load_texture("assets/textures/metal/stained_patterned_metal_26_98_normal.jpg", GL_RGB);
 }
 
 Engine::~Engine() {
-  glBindVertexArray(0);
-  glDeleteVertexArrays(1, &emptyVao);
-
   delete this->shader;
   glfwTerminate();
 }
 
 bool Engine::run() {
-  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   
-  std::vector<Vertex> vertices;
-  std::vector<GLuint> indices;
-  populate_test_cube(vertices, indices);
-  std::vector<GLuint64> handles;
-  handles.push_back(texHandle);
-
   glm::mat4 model = glm::mat4(1.0f);
   
   glm::vec3 viewPosition = glm::vec3(
@@ -118,34 +94,73 @@ bool Engine::run() {
       radius * sin(beta),
       radius * sin(alpha) * cos(beta));
 
-  glm::mat4 view;
-  view = glm::lookAt(viewPosition, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-
-  glm::mat4 projection;
-  projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-
-  Ssbo vertexSsbo(0, vertices);
-  Ssbo indiceSsbo(1, indices);
-  Ssbo handlesSsbo(2, handles);
-
+  glm::mat4 view = glm::lookAt(viewPosition, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+  glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+  
   this->shader->use();
   this->shader->set_mat4("model", model);
   this->shader->set_mat4("view", view);
   this->shader->set_mat4("projection", projection);
-  this->shader->set_vec3("fsViewPosition", viewPosition);
+  this->shader->set_vec3("viewPos", viewPosition);
+  
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, t1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, t2);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, t3);
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, t4);
+  glActiveTexture(GL_TEXTURE4);
+  glBindTexture(GL_TEXTURE_2D, t5);
 
-  vertexSsbo.bind();
-  indiceSsbo.bind();
-  handlesSsbo.bind();
-  glDrawArrays(GL_TRIANGLES, 0, indices.size());
+  shader->set_int("albedoMap", 0);
+  shader->set_int("metallicMap", 1);
+  shader->set_int("roughnessMap", 2);
+  shader->set_int("aoMap", 3);
+  shader->set_int("normalMap", 4);
+  
+  tmodel->draw(*shader);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   glfwSwapBuffers(window);
   glfwPollEvents();
-
+  
   return !glfwWindowShouldClose(this->window);
 }
 
 
+
+static GLuint
+load_texture(const char* path, int type) {
+  GLuint texture = 0;
+
+  int width, height, nrChannels;
+  stbi_set_flip_vertically_on_load(true);
+  unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+  
+  if(!data) {
+    std::cout << "Failed to load texture" << std::endl;
+    exit(1);
+  }
+
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, type, width, height, 0, type, GL_UNSIGNED_BYTE, (void*)data);
+  glGenerateMipmap(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  stbi_image_free(data);
+
+  return texture;
+}
 
 static void
 scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
@@ -166,94 +181,4 @@ key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
       case GLFW_KEY_S: radius += 0.5; break;
     }
   }
-}
-
-static void
-populate_test_cube(std::vector<Vertex> &vertices, std::vector<GLuint> &indices) {
-  for(int i = -1; i < 2; i += 2) {
-    Vertex v1 = {{-1, -1, (float)i},
-      {0, 0, (float)i},
-      {0, 0}};
-    Vertex v2 = {{1, -1, (float)i},
-      {0, 0, (float)i},
-      {1, 0}};
-    Vertex v3 = {{1, 1, (float)i},
-      {0, 0, (float)i},
-      {1, 1}};
-    Vertex v4 = {{-1, -1, (float)i},
-      {0, 0, (float)i},
-      {0, 0}};
-    Vertex v5 = {{1, 1, (float)i},
-      {0, 0, (float)i},
-      {1, 1}};
-    Vertex v6 = {{-1, 1, (float)i},
-      {0, 0, (float)i},
-      {0, 1}};
-
-    vertices.push_back(v1);
-    vertices.push_back(v2);
-    vertices.push_back(v3);
-    vertices.push_back(v4);
-    vertices.push_back(v5);
-    vertices.push_back(v6);
-  }
-
-  for(int i = -1; i < 2; i += 2) {
-    Vertex v1 = {{(float)i, -1, -1},
-      {(float)i, 0, 0},
-      {0, 0}};
-    Vertex v2 = {{(float)i, -1, 1},
-      {(float)i, 0, 0},
-      {1, 0}};
-    Vertex v3 = {{(float)i, 1, 1},
-      {(float)i, 0, 0},
-      {1, 1}};
-    Vertex v4 = {{(float)i, -1, -1},
-      {(float)i, 0, 0},
-      {0, 0}};
-    Vertex v5 = {{(float)i,  1, 1},
-      {(float)i, 0 ,0},
-      {1, 1}};
-    Vertex v6 = {{(float)i, 1, -1},
-      {(float)i, 0, 0},
-      {0, 1}};
-
-    vertices.push_back(v1);
-    vertices.push_back(v2);
-    vertices.push_back(v3);
-    vertices.push_back(v4);
-    vertices.push_back(v5);
-    vertices.push_back(v6);
-  }
-  
-  for(int i = -1; i < 2; i += 2) {
-    Vertex v1 = {{-1, (float)i, -1},
-      {0, (float)i, 0},
-      {0, 0}};
-    Vertex v2 = {{-1, (float)i, 1},
-      {0, (float)i, 0},
-      {1, 0}};
-    Vertex v3 = {{1, (float)i, 1},
-      {0, (float)i, 0},
-      {1, 1}};
-    Vertex v4 = {{-1, (float)i, -1},
-      {0, (float)i, 0},
-      {0, 0}};
-    Vertex v5 = {{1, (float)i, 1},
-      {0, (float)i, 0},
-      {1, 1}};
-    Vertex v6 = {{1, (float)i, -1},
-      {0, (float)i, 0},
-      {0, 1}};
-
-    vertices.push_back(v1);
-    vertices.push_back(v2);
-    vertices.push_back(v3);
-    vertices.push_back(v4);
-    vertices.push_back(v5);
-    vertices.push_back(v6);
-  }
-
-  for(int i = 0; i < 36; i++)
-    indices.push_back(i);
 }

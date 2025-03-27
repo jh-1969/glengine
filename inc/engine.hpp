@@ -8,15 +8,9 @@
 #include <glm/glm.hpp>
 
 #include <shader.hpp>
-#include <ssbo.hpp>
-
-
-
-struct Vertex {
-    float position[3];
-    float normal[3];
-    float uv[2];
-};
+#include <mesh.hpp>
+#include <model.hpp>
+#include <skybox.hpp>
 
 
 
@@ -24,8 +18,6 @@ class Engine {
   private:
     GLFWwindow* window;
     Shader* shader;
-    GLuint emptyVao; /*needed to avoid unwanted render errors 
-                     when using SSBOs for vertex data*/
 
   public:
     Engine(int windowWidth, int windowHeight);

@@ -1,6 +1,6 @@
-CXX = g++
+CXX = clang++
 CFLAGS = -g -I./inc
-LDFLAGS = -lGL -lglfw -lm -ldl
+LDFLAGS = -lGL -lglfw -lm -ldl -lassimp
 
 SRC_DIR = src
 OBJ_DIR = bin
@@ -18,4 +18,4 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 .PHONY: clean
 clean:
-	rm -f $(OBJ)
+	rm -f $(OBJ_DIR)/*
